@@ -1,0 +1,7 @@
+**/**__pycache__
+**/**.pyc
+/*.toml
+/*.py
+/dist
+/realms
+/*.egg-info
