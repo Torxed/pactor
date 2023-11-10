@@ -15,6 +15,7 @@ package="gajim-1.8.3-1-any.pkg.tar.zst"
 
 _USERNAME="$1"
 _PASSWORD="$2"
+_ANNOUNCE_PORT=8002
 
 mkdir -p /var/cache/pactor
 cd /var/cache/pactor
@@ -41,9 +42,9 @@ arch='x86_64'
 wget "https://$_USERNAME:$_PASSWORD@repos.archlinux.org/$repo/os/$arch/$repo.db" --output-document="./$arch/databases/$repo/$repo.db"
 wget "https://$_USERNAME:$_PASSWORD@repos.archlinux.org/$repo/os/$arch/$repo.db.tar.gz" --output-document="./$arch/databases/$repo/$repo.db.tar.gz"
 wget "https://$_USERNAME:$_PASSWORD@repos.archlinux.org/$repo/os/$arch/$repo.db.sig" --output-document="./$arch/databases/$repo/$repo.db.sig"
-torf "./$arch/databases/$repo/$repo.db" -t http://announce.archlinux.life:8001/announce -o "./$arch/torrents/$repo/$repo.db.torrent"
-torf "./$arch/databases/$repo/$repo.db.tar.gz" -t http://announce.archlinux.life:8001/announce -o "./$arch/torrents/$repo/$repo.db.tar.gz.torrent"
-torf "./$arch/databases/$repo/$repo.db.sig" -t http://announce.archlinux.life:8001/announce -o "./$arch/torrents/$repo/$repo.db.sig.torrent"
+torf "./$arch/databases/$repo/$repo.db" -t http://announce.archlinux.life:$_ANNOUNCE_PORT/announce -o "./$arch/torrents/$repo/$repo.db.torrent"
+torf "./$arch/databases/$repo/$repo.db.tar.gz" -t http://announce.archlinux.life:$_ANNOUNCE_PORT/announce -o "./$arch/torrents/$repo/$repo.db.tar.gz.torrent"
+torf "./$arch/databases/$repo/$repo.db.sig" -t http://announce.archlinux.life:$_ANNOUNCE_PORT/announce -o "./$arch/torrents/$repo/$repo.db.sig.torrent"
 
 # Extra
 repo='extra'
@@ -51,9 +52,9 @@ arch='x86_64'
 wget "https://$_USERNAME:$_PASSWORD@repos.archlinux.org/$repo/os/$arch/$repo.db" --output-document="./$arch/databases/$repo/$repo.db"
 wget "https://$_USERNAME:$_PASSWORD@repos.archlinux.org/$repo/os/$arch/$repo.db.tar.gz" --output-document="./$arch/databases/$repo/$repo.db.tar.gz"
 wget "https://$_USERNAME:$_PASSWORD@repos.archlinux.org/$repo/os/$arch/$repo.db.sig" --output-document="./$arch/databases/$repo/$repo.db.sig"
-torf "./$arch/databases/$repo/$repo.db" -t http://announce.archlinux.life:8001/announce -o "./$arch/torrents/$repo/$repo.db.torrent"
-torf "./$arch/databases/$repo/$repo.db.tar.gz" -t http://announce.archlinux.life:8001/announce -o "./$arch/torrents/$repo/$repo.db.tar.gz.torrent"
-torf "./$arch/databases/$repo/$repo.db.sig" -t http://announce.archlinux.life:8001/announce -o "./$arch/torrents/$repo/$repo.db.sig.torrent"
+torf "./$arch/databases/$repo/$repo.db" -t http://announce.archlinux.life:$_ANNOUNCE_PORT/announce -o "./$arch/torrents/$repo/$repo.db.torrent"
+torf "./$arch/databases/$repo/$repo.db.tar.gz" -t http://announce.archlinux.life:$_ANNOUNCE_PORT/announce -o "./$arch/torrents/$repo/$repo.db.tar.gz.torrent"
+torf "./$arch/databases/$repo/$repo.db.sig" -t http://announce.archlinux.life:$_ANNOUNCE_PORT/announce -o "./$arch/torrents/$repo/$repo.db.sig.torrent"
 
 # Community
 repo='community'
@@ -61,9 +62,9 @@ arch='x86_64'
 wget "https://$_USERNAME:$_PASSWORD@repos.archlinux.org/$repo/os/$arch/$repo.db" --output-document="./$arch/databases/$repo/$repo.db"
 wget "https://$_USERNAME:$_PASSWORD@repos.archlinux.org/$repo/os/$arch/$repo.db.tar.gz" --output-document="./$arch/databases/$repo/$repo.db.tar.gz"
 wget "https://$_USERNAME:$_PASSWORD@repos.archlinux.org/$repo/os/$arch/$repo.db.sig" --output-document="./$arch/databases/$repo/$repo.db.sig"
-torf "./$arch/databases/$repo/$repo.db" -t http://announce.archlinux.life:8001/announce -o "./$arch/torrents/$repo/$repo.db.torrent"
-torf "./$arch/databases/$repo/$repo.db.tar.gz" -t http://announce.archlinux.life:8001/announce -o "./$arch/torrents/$repo/$repo.db.tar.gz.torrent"
-torf "./$arch/databases/$repo/$repo.db.sig" -t http://announce.archlinux.life:8001/announce -o "./$arch/torrents/$repo/$repo.db.sig.torrent"
+torf "./$arch/databases/$repo/$repo.db" -t http://announce.archlinux.life:$_ANNOUNCE_PORT/announce -o "./$arch/torrents/$repo/$repo.db.torrent"
+torf "./$arch/databases/$repo/$repo.db.tar.gz" -t http://announce.archlinux.life:$_ANNOUNCE_PORT/announce -o "./$arch/torrents/$repo/$repo.db.tar.gz.torrent"
+torf "./$arch/databases/$repo/$repo.db.sig" -t http://announce.archlinux.life:$_ANNOUNCE_PORT/announce -o "./$arch/torrents/$repo/$repo.db.sig.torrent"
 
 # Multilib
 repo='multilib'
@@ -71,9 +72,9 @@ arch='x86_64'
 wget "https://$_USERNAME:$_PASSWORD@repos.archlinux.org/$repo/os/$arch/$repo.db" --output-document="./$arch/databases/$repo/$repo.db"
 wget "https://$_USERNAME:$_PASSWORD@repos.archlinux.org/$repo/os/$arch/$repo.db.tar.gz" --output-document="./$arch/databases/$repo/$repo.db.tar.gz"
 wget "https://$_USERNAME:$_PASSWORD@repos.archlinux.org/$repo/os/$arch/$repo.db.sig" --output-document="./$arch/databases/$repo/$repo.db.sig"
-torf "./$arch/databases/$repo/$repo.db" -t http://announce.archlinux.life:8001/announce -o "./$arch/torrents/$repo/$repo.db.torrent"
-torf "./$arch/databases/$repo/$repo.db.tar.gz" -t http://announce.archlinux.life:8001/announce -o "./$arch/torrents/$repo/$repo.db.tar.gz.torrent"
-torf "./$arch/databases/$repo/$repo.db.sig" -t http://announce.archlinux.life:8001/announce -o "./$arch/torrents/$repo/$repo.db.sig.torrent"
+torf "./$arch/databases/$repo/$repo.db" -t http://announce.archlinux.life:$_ANNOUNCE_PORT/announce -o "./$arch/torrents/$repo/$repo.db.torrent"
+torf "./$arch/databases/$repo/$repo.db.tar.gz" -t http://announce.archlinux.life:$_ANNOUNCE_PORT/announce -o "./$arch/torrents/$repo/$repo.db.tar.gz.torrent"
+torf "./$arch/databases/$repo/$repo.db.sig" -t http://announce.archlinux.life:$_ANNOUNCE_PORT/announce -o "./$arch/torrents/$repo/$repo.db.sig.torrent"
 
 
 # Some debug packages
@@ -81,8 +82,8 @@ echo "http://ftp.lysator.liu.se/pub/archlinux/extra/os/x86_64/$package $(pwd)/x8
 wget "http://ftp.lysator.liu.se/pub/archlinux/extra/os/x86_64/$package" -O"./x86_64/packages/extra/$package"
 wget "http://ftp.lysator.liu.se/pub/archlinux/extra/os/x86_64/$package.sig" -O"./x86_64/packages/extra/$package.sig"
 
-torf "./x86_64/packages/extra/$package" -t http://announce.archlinux.life:8001/announce -o "./x86_64/packages/extra/$package.torrent"
-torf "./x86_64/packages/extra/$package.sig" -t http://announce.archlinux.life:8001/announce -o "./x86_64/packages/extra/$package.sig.torrent"
+torf "./x86_64/packages/extra/$package" -t http://announce.archlinux.life:$_ANNOUNCE_PORT/announce -o "./x86_64/packages/extra/$package.torrent"
+torf "./x86_64/packages/extra/$package.sig" -t http://announce.archlinux.life:$_ANNOUNCE_PORT/announce -o "./x86_64/packages/extra/$package.sig.torrent"
 
 cp ./x86_64/packages/extra/$package* /home/anton/Downloads/
 chown -R anton: /home/anton/Downloads/$package*
