@@ -1,4 +1,11 @@
 #!/bin/bash
+
+# Do "pacman -Syu" and abort it, pick two packages.
+# Add them to /etc/pacman.conf as two IgnorePkg = "<package"> entries.
+# Add one of the packages full name to this variable:
+
+package="gajim-1.8.3-1-any.pkg.tar.zst"
+
 # .
 # └── x86_64
 #     └── databases
@@ -70,14 +77,14 @@ torf "./$arch/databases/$repo/$repo.db.sig" -t http://announce.archlinux.life:80
 
 
 # Some debug packages
-package="kicad-library-3d-7.0.8-1-any.pkg.tar.zst"
+echo "http://ftp.lysator.liu.se/pub/archlinux/extra/os/x86_64/$package $(pwd)/x86_64/packages/extra/$package"
 wget "http://ftp.lysator.liu.se/pub/archlinux/extra/os/x86_64/$package" -O"./x86_64/packages/extra/$package"
 wget "http://ftp.lysator.liu.se/pub/archlinux/extra/os/x86_64/$package.sig" -O"./x86_64/packages/extra/$package.sig"
+
 torf "./x86_64/packages/extra/$package" -t http://announce.archlinux.life:8001/announce -o "./x86_64/packages/extra/$package.torrent"
 torf "./x86_64/packages/extra/$package.sig" -t http://announce.archlinux.life:8001/announce -o "./x86_64/packages/extra/$package.sig.torrent"
 
-cp "./x86_64/packages/extra/$package*" /home/anton/Downloads/
-chown -R anton: "/home/anton/Downloads/$package*"
+cp ./x86_64/packages/extra/$package* /home/anton/Downloads/
+chown -R anton: /home/anton/Downloads/$package*
 
-rm "./x86_64/packages/extra/$package"
-rm "./x86_64/packages/extra/$package.sig"
+rm ./x86_64/packages/extra/$package*
