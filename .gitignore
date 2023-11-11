@@ -5,3 +5,6 @@
 /dist
 /realms
 /*.egg-info
+/*.zst
+/*.sig
+/*.torrent

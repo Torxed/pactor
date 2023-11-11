@@ -4,7 +4,7 @@
 # Add them to /etc/pacman.conf as two IgnorePkg = "<package"> entries.
 # Add one of the packages full name to this variable:
 
-package="gajim-1.8.3-1-any.pkg.tar.zst"
+package="firefox-119.0.1-1-x86_64.pkg.tar.zst"
 
 # .
 # └── x86_64

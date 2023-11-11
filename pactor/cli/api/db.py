@@ -1,5 +1,10 @@
 import pydantic
 import os
+import urllib.request
+import threading
+import libtorrent
+import time
+from bencode import bdecode, bencode
 from enum import Enum
 from fastapi import HTTPException
 from fastapi.responses import FileResponse
@@ -68,7 +73,7 @@ async def get_db(repo :str, arch :str, database :str):
 		raise HTTPException(status_code=404, detail="File not found")
 
 @app.get("/{repo}/{arch}/{database}.tar.gz")
-async def get_db(repo :str, arch :str, database :str):
+async def get_db_archive(repo :str, arch :str, database :str):
 	requested = RepoArchive(repo=Repos[repo], arch=Architectures[arch], database=Archives[database])
 
 	if (static_file := (session['args'].cache_dir / requested.arch.value / 'databases' / requested.repo.value / requested.database.value)).exists():
@@ -79,7 +84,7 @@ async def get_db(repo :str, arch :str, database :str):
 		raise HTTPException(status_code=404, detail="File not found")
 
 @app.get("/{repo}/{arch}/{database}.db.sig")
-async def get_db(repo :str, arch :str, database :str):
+async def get_db_signature(repo :str, arch :str, database :str):
 	requested = RepoSignatures(repo=Repos[repo], arch=Architectures[arch], database=Signatures[database])
 
 	if (static_file := (session['args'].cache_dir / requested.arch.value / 'databases' / requested.repo.value / requested.database.value)).exists():
@@ -90,8 +95,9 @@ async def get_db(repo :str, arch :str, database :str):
 	else:
 		raise HTTPException(status_code=404, detail="File not found")
 
+
 @app.get("/{repo}/{arch}/{package}.pkg.tar.zst")
-async def get_db(repo :str, arch :str, package :str):
+async def get_package(repo :str, arch :str, package :str):
 	requested = Package(repo=Repos[repo], arch=Architectures[arch], package=package)
 
 	if (static_file := (session['args'].cache_dir / requested.arch.value / 'packages' / requested.repo.value / f"{requested.package}.pkg.tar.zst")).exists():
@@ -100,4 +106,68 @@ async def get_db(repo :str, arch :str, package :str):
 
 		return FileResponse(static_file)
 	else:
-		return TorrentThis(requested)
+		if not (torrent_file := (session['args'].cache_dir / requested.arch.value / 'torrents' / requested.repo.value / f"{requested.package}.pkg.tar.zst.torrent")).exists():
+			urllib.request.urlretrieve(f"https://hvornum.se/{requested.package}.pkg.tar.zst.torrent", str(torrent_file))
+		
+		torrent_session = libtorrent.session({'listen_interfaces': '0.0.0.0:6881'})
+		with torrent_file.open('rb') as fh:
+			content = torrent_session.add_torrent({
+				'ti': libtorrent.torrent_info(bdecode(fh.read())),
+				'save_path': '.'
+			})
+
+		status = content.status()
+
+		print(f"Torrenting down content of {status.name}")
+		
+		_main = [thread for thread in threading.enumerate() if thread.name == 'MainThread'][0]
+		while (not status.is_seeding) and _main.is_alive():
+			status = content.status()
+
+			print(f'{int(status.progress * 10000) / 100}% complete (down: {status.download_rate / 1000} kB/s up: {status.upload_rate / 1000} kB/s peers: {status.num_peers}) {status.state}')
+
+			for alert in torrent_session.pop_alerts():
+				if alert.category() & libtorrent.alert.category_t.error_notification:
+					print(alert)
+
+			time.sleep(1)
+
+		print(content.status().name, 'complete')
+
+@app.get("/{repo}/{arch}/{package}.pkg.tar.zst.sig")
+async def get_package_signature(repo :str, arch :str, package :str):
+	requested = Package(repo=Repos[repo], arch=Architectures[arch], package=package)
+
+	if (static_file := (session['args'].cache_dir / requested.arch.value / 'packages' / requested.repo.value / f"{requested.package}.pkg.tar.zst.sig")).exists():
+		if os.stat(str(static_file)).st_size == 0:
+			raise HTTPException(status_code=404, detail="File not found")
+
+		return FileResponse(static_file)
+	else:
+		if not (torrent_file := (session['args'].cache_dir / requested.arch.value / 'torrents' / requested.repo.value / f"{requested.package}.pkg.tar.zst.sig.torrent")).exists():
+			urllib.request.urlretrieve(f"https://hvornum.se/{requested.package}.pkg.tar.zst.sig.torrent", str(torrent_file))
+		
+		torrent_session = libtorrent.session({'listen_interfaces': '0.0.0.0:6881'})
+		with torrent_file.open('rb') as fh:
+			content = torrent_session.add_torrent({
+				'ti': libtorrent.torrent_info(bdecode(fh.read())),
+				'save_path': '.'
+			})
+
+		status = content.status()
+
+		print(f"Torrenting down content of {status.name}")
+		
+		_main = [thread for thread in threading.enumerate() if thread.name == 'MainThread'][0]
+		while (not status.is_seeding) and _main.is_alive():
+			status = content.status()
+
+			print(f'{int(status.progress * 10000) / 100}% complete (down: {status.download_rate / 1000} kB/s up: {status.upload_rate / 1000} kB/s peers: {status.num_peers}) {status.state}')
+
+			for alert in torrent_session.pop_alerts():
+				if alert.category() & libtorrent.alert.category_t.error_notification:
+					print(alert)
+
+			time.sleep(1)
+
+		print(content.status().name, 'complete')

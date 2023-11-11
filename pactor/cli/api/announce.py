@@ -8,6 +8,9 @@ from ...__init__ import __version__
 
 class Event(Enum):
 	started = 'started'
+	stopped = 'stopped'
+	completed = 'completed'
+	keep_alive = 'keep_alive'
 
 torrents = {
 	
@@ -19,40 +22,82 @@ class bencodeResponse(Response):
 	def render(self, content: Any) -> bytes:
 		return content
 
+def get_peers(info_hash, hide=None, requirecrypto=False):
+	peer_list = []
+	for peer in torrents[info_hash]['peers']:
+		if hide and peer == hide:
+			continue
+
+		if requirecrypto and bool(torrents[info_hash]['peers']) == False:
+			continue
+
+		peer_id, port = peer.split(':')
+		peer_list.append({
+			"ip": torrents[info_hash]['peers'][peer]['ip'],
+			"peer id": peer_id,
+			"port": int(port)
+		})
+	return peer_list
+
+
 @app.get("/announce", response_class=bencodeResponse)
 def announcer(
 	info_hash :str,
 	peer_id :str,
 	port :int,
-	uploaded :float,
-	downloaded :float,
-	left :float,
+	uploaded :int,
+	downloaded :int,
+	left :int,
 	key :str,
-	event :Event,
-	compact :int,
 	request: Request,
+	event :Event = Event.keep_alive,
+	compact :int = 0,
 	redundant :int = 0,
 	supportcrypto :int = 0,
+	requirecrypto :int = 0,
 	no_peer_id :int|None = None,
-	numwant :float|None = None,
-	corrupt :float|None = None,
+	numwant :int|None = None,
+	corrupt :int|None = None,
 	X_Real_IP: str|None = Header(None, include_in_schema=False)
 ):
 	"""
-	:info_hash = info_hash=%91%f8%c1%5b%c7)%0cJ%26%85%09%a3%99%b4%16%3eP!%8e%24
-	:peer_id = -DE211s-Zcz8jz)oBJBa
-	:port = 65281
-	:uploaded = 0
-	:downloaded = 0
-	:left = 0
-	:corrupt = 0
-	:key = 2DA51493
-	:event = started
-	:numwant = 200
-	:compact = 1
-	:no_peer_id = 1
-	:supportcrypto = 1
-	:redundant = 0
+	This is the /announce endpoint for the HTTP announce protocol defined in http://bittorrent.org/beps/bep_0052.html.
+	Should be replaced by the proposed UDP tracker protocol http://bittorrent.org/beps/bep_0041.html in the future.
+
+	The info_hash might appear twice as well in the future: http://bittorrent.org/beps/bep_0048.html
+
+	:param info_hash: the hash identifying the torrent
+	:type info_hash: str
+	:param peer_id: a unique bytes string representing the client identity
+	:type peer_id: str
+	:param port: the port number that the client is listening on
+	:type port: int
+	:param uploaded: how many bytes the client has uploaded
+	:type uploaded: int
+	:param downloaded: how many bytes the client has downloaded
+	:type downloaded: int
+	:param left: how many chunks the client have left to download
+	:type left: int
+	:param key: undocumented
+	:type key: str
+	:param event: what client event triggered the announce (started, completed or stopped), default is Event.keep_alive
+	:type event: Event, optional
+
+	:param redundant: undocumented
+	:type redundant: int, optional
+	:param supportcrypto: indicates if the client supported crypto or not, defaults to 0
+	:type supportcrypto: int, optional
+	:param requirecrypto: indicates if the client requires crypto or not (as per discussion in https://forum.utorrent.com/topic/11398-crypto-tracker-extension/), defaults to 0
+	:type requirecrypto: int, optional
+	:param numwant: number of peers the client is requesting, defaults to 50
+	:type numwant: int, optional
+	:param compact: dictates if the returned peer-list should be in compact form or not (we force it off due to IPv6 until http://bittorrent.org/beps/bep_0007.html is accepted), defaults to 0 (off)
+	:type compact: int, optional
+	...
+	:raises ValueError: If the given event is undefined
+	...
+	:return: bencodeResponse
+	:rtype: bytes
 	"""
 	client_ip = request.client.host or X_Real_IP
 
@@ -61,7 +106,8 @@ def announcer(
 			'peers' : {}
 		}
 	
-	if not f"{peer_id}:{port}" in torrents[info_hash]['peers']:
+	if event == Event.started:
+	#if not f"{peer_id}:{port}" in torrents[info_hash]['peers']:
 		torrents[info_hash]['peers'][f"{peer_id}:{port}"] = {
 			'downloaded' : downloaded,
 			'uploaded' : uploaded,
@@ -72,14 +118,32 @@ def announcer(
 			'port' : port,
 			'numwant' : numwant,
 			'key' : key,
+			'ip' : client_ip,
 			'status' : event
 		}
-	else:
+		peers = get_peers(info_hash, hide=f"{peer_id}:{port}", requirecrypto=requirecrypto)
+	elif event == Event.completed:
 		torrents[info_hash]['peers'][f"{peer_id}:{port}"]['downloaded'] = downloaded
 		torrents[info_hash]['peers'][f"{peer_id}:{port}"]['uploaded'] = uploaded
 		torrents[info_hash]['peers'][f"{peer_id}:{port}"]['status'] = event
 		torrents[info_hash]['peers'][f"{peer_id}:{port}"]['corrupt'] = corrupt
 		torrents[info_hash]['peers'][f"{peer_id}:{port}"]['left'] = left
+		peers = get_peers(info_hash, hide=f"{peer_id}:{port}", requirecrypto=requirecrypto)
+	elif event == Event.stopped:
+		if torrents.get(info_hash, {}).get('peers', {}).get(f"{peer_id}:{port}"):
+			del(torrents[info_hash]['peers'][f"{peer_id}:{port}"])
+		peers = []
+	elif event == Event.keep_alive:
+		peers = []
+	else:
+		raise ValueError(f"Got unknown event: {event}")
 	
-	return bencodeResponse(bencode({'complete': 1, 'downloaded': 0, 'incomplete': 0, 'interval': 1969, 'min interval': 984, 'peers': b'\n\n\x00\x01\xff\x01'}))
-	# print(client_ip, [info_hash, peer_id, port, uploaded, downloaded, left, corrupt, key, event, numwant, compact, no_peer_id, supportcrypto, redundant])
+	return bencodeResponse(
+		bencode({
+			"complete": 1,
+			"incomplete": 0,
+			"interval": 120,
+			"min interval": 120,
+			"peers": peers
+		})
+	)
