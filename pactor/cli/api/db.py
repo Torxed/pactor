@@ -147,8 +147,10 @@ async def get_package_signature(repo :str, arch :str, package :str):
 		if not (torrent_file := (session['args'].cache_dir / requested.arch.value / 'torrents' / requested.repo.value / f"{requested.package}.pkg.tar.zst.sig.torrent")).exists():
 			urllib.request.urlretrieve(f"https://hvornum.se/{requested.package}.pkg.tar.zst.sig.torrent", str(torrent_file))
 		
+		# https://libtorrent.org/python_binding.html
 		torrent_session = libtorrent.session({'listen_interfaces': '0.0.0.0:6881'})
 		with torrent_file.open('rb') as fh:
+			# https://libtorrent.org/reference.html
 			content = torrent_session.add_torrent({
 				'ti': libtorrent.torrent_info(bdecode(fh.read())),
 				'save_path': '.'
