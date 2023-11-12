@@ -2,7 +2,7 @@ import pathlib
 from ..args import subparsers
 from ..api.main import main as parse_api_main
 
-parse_pactor = subparsers.add_parser("api", help="Starts the mock Arch Linux mirror locally")
+parse_pactor = subparsers.add_parser("mirror", help="Starts the mock Arch Linux mirror locally")
 parse_pactor.add_argument(
 	"--addr",
 	required=False,

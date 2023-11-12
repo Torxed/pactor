@@ -1,3 +1,4 @@
 session = {
-	'args' : None
+	'args' : None,
+	'terminating' : False
 }

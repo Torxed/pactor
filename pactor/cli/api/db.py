@@ -130,8 +130,6 @@ async def get_package(repo :str, arch :str, package :str):
 		if not (torrent_file := (session['args'].cache_dir / f"{requested.package}.pkg.tar.zst.torrent")).exists():
 			urllib.request.urlretrieve(f"https://hvornum.se/{requested.package}.pkg.tar.zst.torrent", str(torrent_file))
 		
-		print(f"Opening torrent: {torrent_file}")
-
 		torrent_session = libtorrent.session({'listen_interfaces': '0.0.0.0:6881'})
 		with torrent_file.open('rb') as fh:
 			torrent_info = to_dict(bdecode(fh.read()))
@@ -188,7 +186,7 @@ async def get_package_signature(repo :str, arch :str, package :str):
 		print(f"Torrenting down content of {status.name}")
 		
 		_main = [thread for thread in threading.enumerate() if thread.name == 'MainThread'][0]
-		while (not status.is_seeding) and _main.is_alive():
+		while (not status.is_seeding) and _main.is_alive() and session['terminating'] is False:
 			status = content.status()
 
 			print(f'{int(status.progress * 10000) / 100}% complete (down: {status.download_rate / 1000} kB/s up: {status.upload_rate / 1000} kB/s peers: {status.num_peers}) {status.state}')
