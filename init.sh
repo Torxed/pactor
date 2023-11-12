@@ -5,12 +5,15 @@ _PASSWORD="$2"
 _MIRROR_BASE="https://$_USERNAME:$_PASSWORD@repos.archlinux.org"
 _ARCH='x86_64'
 _CACHE_DIR="/var/cache/pactor/"
+_PACTOR_CACHE_DIR=$_CACHE_DIR
 _ANNOUNCE_URL="http://announce.archlinux.life:8002/announce"
 
 if [[ ! -z $SUDO_USER ]]; then
-	_SEEDBOX_LOCATION="~/Downloads/torrents"
+	rm -rf $_PACTOR_CACHE_DIR
+	mkdir -p $_PACTOR_CACHE_DIR
+	chown -R $SUDO_USER:$SUDO_USER $_PACTOR_CACHE_DIR
 
-	mkdir -p "/home/$SUDO_USER/pactor_torrents"
+	_CACHE_DIR="/home/$SUDO_USER/pactor_torrents"
 fi
 
 rm -rf "$_CACHE_DIR/"
@@ -36,8 +39,17 @@ do
 	python -m pactor torrent --workdir $_CACHE_DIR --file "$_CACHE_DIR/$repo/os/$_ARCH/$repo.db" --announce $_ANNOUNCE_URL --outfile "$_CACHE_DIR/$repo/os/$_ARCH/$repo.db.torrent"
 	python -m pactor torrent --workdir $_CACHE_DIR --file "$_CACHE_DIR/$repo/os/$_ARCH/$repo.db.tar.gz" --announce $_ANNOUNCE_URL --outfile "$_CACHE_DIR/$repo/os/$_ARCH/$repo.db.tar.gz.torrent"
 
+	if [ $_PACTOR_CACHE_DIR != $_CACHE_DIR ]; then
+		mkdir -p "$_PACTOR_CACHE_DIR/$repo/os/$_ARCH"
+		cp "$_CACHE_DIR/$repo/os/$_ARCH/$repo.db" "$_PACTOR_CACHE_DIR/$repo/os/$_ARCH/$repo.db"
+		cp "$_CACHE_DIR/$repo/os/$_ARCH/$repo.db.tar.gz" "$_PACTOR_CACHE_DIR/$repo/os/$_ARCH/$repo.db.tar.gz"
+	fi
+
 	# Usually there's no signature for the .db, so we skip it
 	if [ -f "$_CACHE_DIR/$repo/os/$_ARCH/$repo.db.sig" ]; then
+		if [ $_PACTOR_CACHE_DIR != $_CACHE_DIR ]; then
+			cp "$_CACHE_DIR/$repo/os/$_ARCH/$repo.db.sig" "$_PACTOR_CACHE_DIR/$repo/os/$_ARCH/$repo.db.sig"
+		fi
 		python -m pactor torrent --workdir $_CACHE_DIR --file "$_CACHE_DIR/$repo/os/$_ARCH/$repo.db.sig" --announce $_ANNOUNCE_URL --outfile "$_CACHE_DIR/$repo/os/$_ARCH/$repo.db.sig.torrent"
 	fi
 done
@@ -53,12 +65,20 @@ do
 				wget "$url" --output-document="$_CACHE_DIR/$repo/os/$_ARCH/$(basename $url)"
 				wget "$url.sig" --output-document="$_CACHE_DIR/$repo/os/$_ARCH/$(basename $url).sig"
 
-				python -m pactor torrent --workdir $_CACHE_DIR --file "$_CACHE_DIR/$repo/os/$_ARCH/$(basename $url)" --announce $_ANNOUNCE_URL --outfile "$_CACHE_DIR/$repo/os/$_ARCH/$(basename $url).torrent"
-				python -m pactor torrent --workdir $_CACHE_DIR --file "$_CACHE_DIR/$repo/os/$_ARCH/$(basename $url).sig" --announce $_ANNOUNCE_URL --outfile "$_CACHE_DIR/$repo/os/$_ARCH/$(basename $url).sig.torrent"
+				# Realistically we should place the .torrent files under "$_CACHE_DIR/$repo/os/$_ARCH/$(basename $url).torrent"
+				# But it's a hassle to load into lets say rtorrent.. so we place them in one big folder for now:
+				python -m pactor torrent --workdir $_CACHE_DIR --file "$_CACHE_DIR/$repo/os/$_ARCH/$(basename $url)" --announce $_ANNOUNCE_URL --outfile "$_CACHE_DIR/$(basename $url).torrent"
+				python -m pactor torrent --workdir $_CACHE_DIR --file "$_CACHE_DIR/$repo/os/$_ARCH/$(basename $url).sig" --announce $_ANNOUNCE_URL --outfile "$_CACHE_DIR/$(basename $url).sig.torrent"
 
-				if [[ ! -z $SUDO_USER ]]; then
-					cp "$_CACHE_DIR/$repo/os/$_ARCH/$(basename $url).torrent" "/home/$SUDO_USER/pactor_torrents/$(basename $url).torrent"
-					chown $SUDO_USER:$SUDO_USER "/home/$SUDO_USER/pactor_torrents/$(basename $url).torrent"
+				if [ $_PACTOR_CACHE_DIR != $_CACHE_DIR ]; then
+					mkdir -p "$_PACTOR_CACHE_DIR/$repo/os/$_ARCH"
+					# We ignore moving the actual packages + signature to the pactor cache dir, so that we can
+					# simulate what it would look like when pactor self-populates the cache dir.
+					# cp "$_CACHE_DIR/$repo/os/$_ARCH/$(basename $url)" "$_PACTOR_CACHE_DIR/$repo/os/$_ARCH/$(basename $url)"
+					# cp "$_CACHE_DIR/$repo/os/$_ARCH/$(basename $url).sig" "$_PACTOR_CACHE_DIR/$repo/os/$_ARCH/$(basename $url).sig"
+
+					cp "$_CACHE_DIR/$(basename $url).torrent" "$_PACTOR_CACHE_DIR/$(basename $url).torrent"
+					cp "$_CACHE_DIR/$(basename $url).sig.torrent" "$_PACTOR_CACHE_DIR/$(basename $url).sig.torrent"
 				fi
 			fi
 		done
