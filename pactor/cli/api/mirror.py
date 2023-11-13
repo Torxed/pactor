@@ -1,16 +1,18 @@
 import pydantic
 import os
+import sys
 import urllib.request
 import threading
 import libtorrent
 import time
-from bencode import bdecode, bencode
+import asyncio
 from enum import Enum
 from fastapi import HTTPException
 from fastapi.responses import FileResponse
 
 from .main import app
 from ...session import session
+from ...config import config
 from ...__init__ import __version__
 
 
@@ -65,9 +67,9 @@ class Package(pydantic.BaseModel):
 async def get_db(repo :str, arch :str, database :str):
 	requested = RepoDatabase(repo=Repos[repo], arch=Architectures[arch], database=Databases[database])
 
-	(session['args'].cache_dir / requested.repo.value / "os" / requested.arch.value).mkdir(parents=True, exist_ok=True)
+	(config.cache_dir / requested.repo.value / "os" / requested.arch.value).mkdir(parents=True, exist_ok=True)
 
-	if (static_file := (session['args'].cache_dir / requested.repo.value / "os" / requested.arch.value / requested.database.value)).exists():
+	if (static_file := (config.cache_dir / requested.repo.value / "os" / requested.arch.value / requested.database.value)).exists():
 		if os.stat(str(static_file)).st_size == 0:
 			raise HTTPException(status_code=404, detail="File not found")
 		return FileResponse(static_file)
@@ -78,9 +80,9 @@ async def get_db(repo :str, arch :str, database :str):
 async def get_db_archive(repo :str, arch :str, database :str):
 	requested = RepoArchive(repo=Repos[repo], arch=Architectures[arch], database=Archives[database])
 
-	(session['args'].cache_dir / requested.repo.value / "os" / requested.arch.value).mkdir(parents=True, exist_ok=True)
+	(config.cache_dir / requested.repo.value / "os" / requested.arch.value).mkdir(parents=True, exist_ok=True)
 
-	if (static_file := (session['args'].cache_dir / requested.arch.value / 'databases' / requested.repo.value / requested.database.value)).exists():
+	if (static_file := (config.cache_dir / requested.arch.value / 'databases' / requested.repo.value / requested.database.value)).exists():
 		if os.stat(str(static_file)).st_size == 0:
 			raise HTTPException(status_code=404, detail="File not found")
 		return FileResponse(static_file)
@@ -91,9 +93,9 @@ async def get_db_archive(repo :str, arch :str, database :str):
 async def get_db_signature(repo :str, arch :str, database :str):
 	requested = RepoSignatures(repo=Repos[repo], arch=Architectures[arch], database=Signatures[database])
 
-	(session['args'].cache_dir / requested.repo.value / "os" / requested.arch.value).mkdir(parents=True, exist_ok=True)
+	(config.cache_dir / requested.repo.value / "os" / requested.arch.value).mkdir(parents=True, exist_ok=True)
 
-	if (static_file := (session['args'].cache_dir / requested.arch.value / 'databases' / requested.repo.value / requested.database.value)).exists():
+	if (static_file := (config.cache_dir / requested.arch.value / 'databases' / requested.repo.value / requested.database.value)).exists():
 		if os.stat(str(static_file)).st_size == 0:
 			raise HTTPException(status_code=404, detail="File not found")
 
@@ -119,30 +121,28 @@ def to_dict(d):
 async def get_package(repo :str, arch :str, package :str):
 	requested = Package(repo=Repos[repo], arch=Architectures[arch], package=package)
 
-	(session['args'].cache_dir / requested.repo.value / "os" / requested.arch.value).mkdir(parents=True, exist_ok=True)
+	(config.cache_dir / requested.repo.value / "os" / requested.arch.value).mkdir(parents=True, exist_ok=True)
 
-	if (static_file := (session['args'].cache_dir / requested.repo.value / "os" / requested.arch.value / f"{requested.package}.pkg.tar.zst")).exists():
+	if (static_file := (config.cache_dir / requested.repo.value / "os" / requested.arch.value / f"{requested.package}.pkg.tar.zst")).exists():
 		if os.stat(str(static_file)).st_size == 0:
 			raise HTTPException(status_code=404, detail="File not found")
 
 		return FileResponse(static_file)
 	else:
-		if not (torrent_file := (session['args'].cache_dir / f"{requested.package}.pkg.tar.zst.torrent")).exists():
-			print(f"Missing torrent file: {torrent_file}")
-			urllib.request.urlretrieve(f"https://hvornum.se/{requested.package}.pkg.tar.zst.torrent", str(torrent_file))
+		if not (torrent_file := (config.cache_dir / f"{requested.package}.pkg.tar.zst.torrent")).exists():
+			# urllib.request.urlretrieve(f"https://hvornum.se/{requested.package}.pkg.tar.zst.torrent", str(torrent_file))
+			raise ValueError(f"Missing torrent {torrent_file} - Ideally this would be downloaded from an upstream mirror, but for now you need to place it here manually.")
 		
 		torrent_session = libtorrent.session({'listen_interfaces': '0.0.0.0:6881'})
 		with torrent_file.open('rb') as fh:
-			torrent_info = to_dict(bdecode(fh.read()))
-			print(f"Torrent info: {torrent_info}")
+			torrent_info = to_dict(libtorrent.bdecode(fh.read()))
+
 			content = torrent_session.add_torrent({
 				'ti': libtorrent.torrent_info(torrent_info),
-				'save_path': '.'
+				'save_path': str(config.cache_dir)
 			})
 
 		status = content.status()
-
-		print(f"Torrenting down content of {status.name}")
 		
 		_main = [thread for thread in threading.enumerate() if thread.name == 'MainThread'][0]
 		while (not status.is_seeding) and _main.is_alive():
@@ -154,38 +154,38 @@ async def get_package(repo :str, arch :str, package :str):
 				if alert.category() & libtorrent.alert.category_t.error_notification:
 					print(alert)
 
-			time.sleep(1)
+			sys.stdout.flush()
+			await asyncio.sleep(1)
 
-		print(content.status().name, 'complete')
+		print(f"Package from {content.status().name} downloaded")
 
 @app.get("/{repo}/{arch}/{package}.pkg.tar.zst.sig")
 async def get_package_signature(repo :str, arch :str, package :str):
 	requested = Package(repo=Repos[repo], arch=Architectures[arch], package=package)
 
-	(session['args'].cache_dir / requested.repo.value / "os" / requested.arch.value).mkdir(parents=True, exist_ok=True)
+	(config.cache_dir / requested.repo.value / "os" / requested.arch.value).mkdir(parents=True, exist_ok=True)
 
-	if (static_file := (session['args'].cache_dir / requested.repo.value / "os" / requested.arch.value / f"{requested.package}.pkg.tar.zst.sig")).exists():
+	if (static_file := (config.cache_dir / requested.repo.value / "os" / requested.arch.value / f"{requested.package}.pkg.tar.zst.sig")).exists():
 		if os.stat(str(static_file)).st_size == 0:
 			raise HTTPException(status_code=404, detail="File not found")
 
 		return FileResponse(static_file)
 	else:
-		if not (torrent_file := (session['args'].cache_dir / f"{requested.package}.pkg.tar.zst.sig.torrent")).exists():
-			urllib.request.urlretrieve(f"https://hvornum.se/{requested.package}.pkg.tar.zst.sig.torrent", str(torrent_file))
+		if not (torrent_file := (config.cache_dir / f"{requested.package}.pkg.tar.zst.sig.torrent")).exists():
+			# urllib.request.urlretrieve(f"https://hvornum.se/{requested.package}.pkg.tar.zst.sig.torrent", str(torrent_file))
+			raise ValueError(f"Missing torrent {torrent_file} - Ideally this would be downloaded from an upstream mirror, but for now you need to place it here manually.")
 		
 		# https://libtorrent.org/python_binding.html
 		torrent_session = libtorrent.session({'listen_interfaces': '0.0.0.0:6881'})
 		with torrent_file.open('rb') as fh:
 			# https://libtorrent.org/reference.html
 			content = torrent_session.add_torrent({
-				'ti': libtorrent.torrent_info(bdecode(fh.read())),
+				'ti': libtorrent.torrent_info(libtorrent.bdecode(fh.read())),
 				'save_path': '.'
 			})
 
 		status = content.status()
 
-		print(f"Torrenting down content of {status.name}")
-		
 		_main = [thread for thread in threading.enumerate() if thread.name == 'MainThread'][0]
 		while (not status.is_seeding) and _main.is_alive() and session['terminating'] is False:
 			status = content.status()
@@ -198,4 +198,4 @@ async def get_package_signature(repo :str, arch :str, package :str):
 
 			time.sleep(1)
 
-		print(content.status().name, 'complete')
+		print(f"Package from {content.status().name} downloaded")

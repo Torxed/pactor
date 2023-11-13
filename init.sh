@@ -2,18 +2,18 @@
 
 _USERNAME="$1"
 _PASSWORD="$2"
-_MIRROR_BASE="https://$_USERNAME:$_PASSWORD@repos.archlinux.org"
 _ARCH='x86_64'
 _CACHE_DIR="/var/cache/pactor/"
 _PACTOR_CACHE_DIR=$_CACHE_DIR
 _ANNOUNCE_URL="http://announce.archlinux.life:8002/announce"
+_MIRROR_BASE="https://ftp.lysator.liu.se/pub/archlinux/"
 
 if [[ ! -z $SUDO_USER ]]; then
 	rm -rf $_PACTOR_CACHE_DIR
 	mkdir -p $_PACTOR_CACHE_DIR
 	chown -R $SUDO_USER:$SUDO_USER $_PACTOR_CACHE_DIR
 
-	_CACHE_DIR="/home/$SUDO_USER/pactor_torrents"
+	_CACHE_DIR="./pactor_torrents"
 fi
 
 rm -rf "$_CACHE_DIR/"

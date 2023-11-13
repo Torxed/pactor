@@ -127,7 +127,7 @@ def torrent(args, **kwargs):
 					b'path': [*[str(path) for path in paths[1:]], str(args.file.name)]
 				}
 			],
-			b'name': str(paths[0]).encode(),
+			b'name': str(paths[0]).encode(), # Name has to be the base path, for instance "extra". Otherwise mirror folder structure gets garbled.
 			b'piece length': 16384,
 			b'pieces': b''.join(calculate_pieces(args.file, piece_length=16384))
 		}

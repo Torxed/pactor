@@ -1,13 +1,19 @@
 import logging
 import uvicorn
+import libtorrent
+import base64
 from typing import Any
 from fastapi import Request, Header, Response
 from enum import Enum
-from bencode import bdecode, bencode
 from fastapi import FastAPI
 
 from .main import app
 from ...__init__ import __version__
+from ...session import session, config
+from ...database.postgresql import Database
+
+session['db'] = Database(dbname=config.db.database, user=config.db.username, password=config.db.password, host=config.db.hostname)
+session['db'].init()
 
 class Event(Enum):
 	started = 'started'
@@ -15,9 +21,6 @@ class Event(Enum):
 	completed = 'completed'
 	keep_alive = 'keep_alive'
 
-torrents = {
-	
-}
 
 class bencodeResponse(Response):
 	media_type = "text/plain"
@@ -27,22 +30,25 @@ class bencodeResponse(Response):
 
 def get_peers(info_hash, hide=None, requirecrypto=False):
 	peer_list = []
-	for peer in torrents[info_hash]['peers']:
-		print(f"Iterating peer: {peer}")
-		if hide and peer == hide:
-			continue
+	for peer in session['db'].query("SELECT * FROM announcements WHERE info_hash=%s AND peer_id != %s AND peer_port != %s AND event != 'stopped' AND requirecrypto=%s", (
+		base64.b64encode(info_hash.encode('UTF-8')).decode(),
+		base64.b64encode(hide[0].encode('UTF-8')).decode(),
+		hide[1],
+		str(requirecrypto)[0].lower()
+	), force_list=True):
 
-		if requirecrypto and bool(torrents[info_hash]['peers']) == False:
-			continue
-
-		peer_id, port = peer.rsplit(':', 1)
 		peer_list.append({
-			"ip": torrents[info_hash]['peers'][peer]['ip'],
-			"peer id": peer_id,
-			"port": int(port)
+			"ip": peer['peer_ip'],
+			"peer id": peer['peer_id'],
+			"port": int(peer['peer_port'])
 		})
+
+	print(f"Found peers: {peer_list}")
 	return peer_list
 
+@app.get("/version")
+def version():
+	return {"version": __version__}
 
 @app.get("/announce", response_class=bencodeResponse)
 def announcer(
@@ -103,39 +109,23 @@ def announcer(
 	:return: bencodeResponse
 	:rtype: bytes
 	"""
-	client_ip = request.client.host or X_Real_IP
-
-	if not info_hash in torrents:
-		torrents[info_hash] = {
-			'peers' : {}
-		}
+	client_ip = X_Real_IP or request.client.host
 	
 	if event == Event.started:
-	#if not f"{peer_id}:{port}" in torrents[info_hash]['peers']:
-		torrents[info_hash]['peers'][f"{peer_id}:{port}"] = {
-			'downloaded' : downloaded,
-			'uploaded' : uploaded,
-			'corrupt' : corrupt,
-			'left' : left,
-			'supportcrypto' : supportcrypto,
-			'no_peer_id' : no_peer_id,
-			'port' : port,
-			'numwant' : numwant,
-			'key' : key,
-			'ip' : client_ip,
-			'status' : event
-		}
-		peers = get_peers(info_hash, hide=f"{peer_id}:{port}", requirecrypto=requirecrypto)
+		session['db'].query("INSERT INTO announcements (info_hash, peer_id, peer_ip, peer_port, event) VALUES (%s, %s, %s, %s, %s)", (base64.b64encode(info_hash.encode()).decode(), base64.b64encode(peer_id.encode('UTF-8')).decode(), client_ip, port, event.value))
+
+		peers = get_peers(info_hash, hide=(peer_id, port), requirecrypto=bool(requirecrypto))
 	elif event == Event.completed:
-		torrents[info_hash]['peers'][f"{peer_id}:{port}"]['downloaded'] = downloaded
-		torrents[info_hash]['peers'][f"{peer_id}:{port}"]['uploaded'] = uploaded
-		torrents[info_hash]['peers'][f"{peer_id}:{port}"]['status'] = event
-		torrents[info_hash]['peers'][f"{peer_id}:{port}"]['corrupt'] = corrupt
-		torrents[info_hash]['peers'][f"{peer_id}:{port}"]['left'] = left
-		peers = get_peers(info_hash, hide=f"{peer_id}:{port}", requirecrypto=requirecrypto)
+		session['db'].query("UPDATE announcements SET downloaded=%s, uploaded=%s, event=%s, pieces_left=%s WHERE info_hash=%s AND peer_id=%s AND peer_port=%s", (
+			downloaded, uploaded, event.value, left, base64.b64encode(info_hash.encode()).decode(), base64.b64encode(peer_id.encode('UTF-8')).decode(), port
+		))
+
+		peers = get_peers(info_hash, hide=(peer_id, port), requirecrypto=bool(requirecrypto))
 	elif event == Event.stopped:
-		if torrents.get(info_hash, {}).get('peers', {}).get(f"{peer_id}:{port}"):
-			del(torrents[info_hash]['peers'][f"{peer_id}:{port}"])
+		session['db'].query("UPDATE announcements SET downloaded=%s, uploaded=%s, event=%s, pieces_left=%s WHERE info_hash=%s AND peer_id=%s AND peer_port=%s", (
+			downloaded, uploaded, event.value, left, base64.b64encode(info_hash.encode()).decode(), base64.b64encode(peer_id.encode('UTF-8')).decode(), port
+		))
+
 		peers = []
 	elif event == Event.keep_alive:
 		peers = []
@@ -143,7 +133,7 @@ def announcer(
 		raise ValueError(f"Got unknown event: {event}")
 	
 	return bencodeResponse(
-		bencode({
+		libtorrent.bencode({
 			"complete": 1,
 			"incomplete": 0,
 			"interval": 120,

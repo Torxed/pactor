@@ -1,0 +1,87 @@
+version: '3.7'
+
+networks:
+  announce-net:
+    name: announce-net
+    external: false
+  mirror-net:
+    name: mirror-net
+    external: false
+
+services:
+    nginx-frontend:
+        image: nginx:latest
+        volumes:
+            - ./DockerFiles/nginx/templates:/etc/nginx/templates
+        restart: always
+        environment:
+            - NGINX_PORT=80
+        ports:
+            - "8001:8001"
+            - "8002:8002"
+        networks:
+            - mirror-net
+            - announce-net
+            - default
+        depends_on:
+            - announce
+            - mirror
+
+    announce:
+        build:
+            context: .
+            dockerfile: ./DockerFiles/announce/Dockerfile
+        deploy:
+            replicas: 5
+        expose:
+            - "8002"
+        restart: always
+        volumes:
+            - "/etc/localtime:/etc/localtime:ro"
+            - "./pactor.toml:/etc/pactor/pactor.toml:ro"
+        depends_on:
+            - postgres
+        networks:
+            announce-net:
+            default:
+                aliases:
+                    - announce.archlinux.life
+    mirror:
+        build:
+            context: .
+            dockerfile: ./DockerFiles/mirror/Dockerfile
+        deploy:
+            replicas: 5
+        expose:
+            - "8001"
+        restart: always
+        volumes:
+            - "/etc/localtime:/etc/localtime:ro"
+            - "./pactor.toml:/etc/pactor/pactor.toml:ro"
+            - "/var/cache/pactor:/var/cache/pactor"
+        depends_on:
+            - postgres
+        networks:
+            - mirror-net
+            - default
+    postgres:
+        image: "postgres:15.4"
+        healthcheck:
+            test: [ "CMD-SHELL", "psql -U $${POSTGRES_USER} $${POSTGRES_DB} -c '\\q'"]
+            timeout: 45s
+            interval: 30s
+            retries: 10
+            start_period: 5s
+        restart: always
+        volumes:
+            - ./data/postgresql:/var/lib/postgresql/data
+        environment:
+            POSTGRES_USER: pactor
+            POSTGRES_PASSWORD: pactor
+            POSTGRES_DB: pactor
+            POSTGRES_HOST: postgres
+        expose:
+            - "5432"
+        networks:
+            - announce-net
+            - mirror-net

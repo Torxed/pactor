@@ -1,4 +1,7 @@
+from .config import config
+
 session = {
 	'args' : None,
-	'terminating' : False
+	'terminating' : False,
+	'db' : None
 }

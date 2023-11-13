@@ -1,0 +1,24 @@
+# This is an example configuration for rtorrent
+# to host a testing setup for use with pactor.
+
+# The important part is "directory.default.set"
+# which must match that of --workdir in pactor.
+
+throttle.min_peers.normal.set = 3000
+throttle.max_peers.normal.set = 6000
+throttle.min_peers.seed.set = 3000
+throttle.max_peers.seed.set = 6000
+throttle.max_uploads.set = 200
+throttle.global_down.max_rate.set = 15000000
+throttle.global_up.max_rate.set = 15000000
+
+pieces.hash.on_completion.set = yes
+directory.default.set = ~/pactor_torrents
+session.path.set = ~/.rtorrent.session
+
+network.port_range.set = 49000-49000
+
+#protocol.encryption.set = allow_incoming,try_outgoing,enable_retry
+protocol.encryption.set = none
+
+dht.mode.set = disable

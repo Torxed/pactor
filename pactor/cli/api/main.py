@@ -3,21 +3,22 @@ import uvicorn
 from fastapi import FastAPI
 
 from ...output import log
+from ...session import session, config
+from ...database.postgresql import Database
 
 app = FastAPI()
 
 def main(args, **kwargs):
 	# args.addr
 	from .version import version
-	from .db import get_db
+	from .mirror import get_db
 
 	log(f"Started up pactor's mirror entrypoint", level=logging.INFO, fg="green")
-	uvicorn.run('pactor.cli.api.db:app', host=args.addr, port=args.port, workers=5)
+	uvicorn.run(app, host=args.addr, port=args.port)
 
 def announce(args, **kwargs):
-	# args.addr
 	from .version import version
 	from .announce import announcer
 
 	log(f"Started up pactor's announce entrypoint", level=logging.INFO, fg="green")
-	uvicorn.run('pactor.cli.api.announce:app', host=args.addr, port=args.port, workers=5)
+	uvicorn.run(app, host=args.addr, port=args.port)

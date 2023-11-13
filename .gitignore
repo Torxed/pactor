@@ -8,3 +8,5 @@
 /*.zst
 /*.sig
 /*.torrent
+/pactor_torrents
+/data
