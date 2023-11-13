@@ -22,6 +22,8 @@ There are PR's to pacman that addresses the timeout issue, once they get merged 
 2. `rtorrent` and then load all torrents under `./pactor_torrents/*.torrent` *(these are the initial seedbox torrents that pactor will grab from)*
 3. `pacman -Syu` should now request packages from `pactor mirror`, which will get the torrents from `rtorrent`.
 
+[![thumb](_static/yt_thumb.jpg)](https://youtu.be/2_yBCGPKHX4)
+
 # Overview
 
 As mentioned, this is a proof of concept. It will be a bit shaky and not well polished.
