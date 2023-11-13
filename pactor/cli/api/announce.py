@@ -1,7 +1,10 @@
+import logging
+import uvicorn
 from typing import Any
 from fastapi import Request, Header, Response
 from enum import Enum
 from bencode import bdecode, bencode
+from fastapi import FastAPI
 
 from .main import app
 from ...__init__ import __version__
@@ -25,13 +28,14 @@ class bencodeResponse(Response):
 def get_peers(info_hash, hide=None, requirecrypto=False):
 	peer_list = []
 	for peer in torrents[info_hash]['peers']:
+		print(f"Iterating peer: {peer}")
 		if hide and peer == hide:
 			continue
 
 		if requirecrypto and bool(torrents[info_hash]['peers']) == False:
 			continue
 
-		peer_id, port = peer.split(':')
+		peer_id, port = peer.rsplit(':', 1)
 		peer_list.append({
 			"ip": torrents[info_hash]['peers'][peer]['ip'],
 			"peer id": peer_id,

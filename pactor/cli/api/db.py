@@ -128,6 +128,7 @@ async def get_package(repo :str, arch :str, package :str):
 		return FileResponse(static_file)
 	else:
 		if not (torrent_file := (session['args'].cache_dir / f"{requested.package}.pkg.tar.zst.torrent")).exists():
+			print(f"Missing torrent file: {torrent_file}")
 			urllib.request.urlretrieve(f"https://hvornum.se/{requested.package}.pkg.tar.zst.torrent", str(torrent_file))
 		
 		torrent_session = libtorrent.session({'listen_interfaces': '0.0.0.0:6881'})
